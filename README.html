@@ -1,0 +1,1655 @@
+```html
+<!DOCTYPE html>
+<html lang="az">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zəncirotu Balası: Kosmik Uçuş</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #030408;
+            overflow: hidden;
+            font-family: 'Fredoka', sans-serif;
+            touch-action: manipulation;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .ascii-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        @keyframes floatGentle {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-6px); }
+        }
+        .animate-float {
+            animation: floatGentle 2.4s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- Yuxarı Sol HUD: Xal və Rekord -->
+    <div id="hudPanel" class="fixed top-4 left-4 z-20 flex items-center gap-2.5 sm:gap-3 pointer-events-none">
+        <div class="px-4 py-2 rounded-2xl bg-slate-950/75 border border-amber-400/35 backdrop-blur-md shadow-[0_0_20px_rgba(251,191,36,0.15)] flex items-center gap-2">
+            <span class="ascii-font text-amber-400 font-bold text-base sm:text-lg">*</span>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-amber-200/70 leading-none">Xal</div>
+                <div id="scoreDisplay" class="text-lg sm:text-xl font-bold text-amber-100 leading-tight">0</div>
+            </div>
+        </div>
+
+        <div class="px-4 py-2 rounded-2xl bg-slate-950/75 border border-sky-400/30 backdrop-blur-md shadow-lg flex items-center gap-2">
+            <span class="ascii-font text-sky-300 font-bold text-base sm:text-lg">@</span>
+            <div>
+                <div class="text-[10px] uppercase tracking-wider text-sky-200/70 leading-none">Rekord</div>
+                <div id="bestScoreDisplay" class="text-lg sm:text-xl font-bold text-sky-100 leading-tight">0</div>
+            </div>
+        </div>
+
+        <!-- Qalxan göstəricisi (Ulduz tozu topladıqca dolur) -->
+        <div id="shieldBadge" class="hidden px-3.5 py-2 rounded-2xl bg-emerald-950/80 border border-emerald-400/50 backdrop-blur-md shadow-[0_0_18px_rgba(52,211,153,0.3)] items-center gap-1.5">
+            <span class="ascii-font text-emerald-300 font-bold">✦</span>
+            <span class="text-xs sm:text-sm font-semibold text-emerald-100">Qalxan Aktiv!</span>
+        </div>
+    </div>
+
+    <!-- Yuxarı Sağ Səs Düyməsi -->
+    <button id="soundToggle" aria-label="Səsi aç/bağla"
+        class="fixed top-4 right-4 z-20 p-3 rounded-2xl bg-slate-950/75 border border-slate-700/60 text-amber-200 hover:bg-slate-800 hover:scale-105 active:scale-95 transition-all backdrop-blur-md shadow-lg">
+        <svg id="soundOnIcon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+        </svg>
+        <svg id="soundOffIcon" class="w-5 h-5 hidden text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+        </svg>
+    </button>
+
+    <!-- Son Uçuş Nəticəsi Kartı (Uduzub yenidən gül olanda görünür) -->
+    <div id="runSummaryCard" class="hidden fixed top-20 inset-x-0 z-20 flex justify-center pointer-events-none px-4">
+        <div class="animate-float px-5 py-3 rounded-3xl bg-slate-950/85 border border-amber-400/40 backdrop-blur-md shadow-[0_0_30px_rgba(251,191,36,0.2)] text-center max-w-xs w-full">
+            <div class="text-xs uppercase tracking-widest text-amber-300/80 font-semibold">Bala yenidən gül oldu! 🌱</div>
+            <div class="mt-1 flex items-center justify-center gap-4 text-sm sm:text-base">
+                <span class="text-amber-100">Son Xal: <strong id="lastScoreVal" class="text-amber-400 text-lg">0</strong></span>
+                <span class="text-slate-600">|</span>
+                <span class="text-sky-100">Rekord: <strong id="summaryBestVal" class="text-sky-300 text-lg">0</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aşağıda İnteraktiv Yönləndirmə Paneli -->
+    <div class="fixed bottom-5 inset-x-0 z-10 flex justify-center pointer-events-none px-4">
+        <div id="statusBadge"
+            class="px-5 py-2.5 rounded-full bg-slate-950/80 border border-amber-400/35 text-amber-100 text-sm sm:text-base tracking-wide shadow-[0_0_25px_rgba(251,191,36,0.18)] backdrop-blur-md transition-all duration-300 flex items-center gap-2.5">
+            <span id="statusIcon" class="ascii-font text-amber-400 font-bold text-lg">@</span>
+            <span id="statusText">Sarı gülə toxun ✨</span>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+/**
+ * ZƏNCİROTU BALASI: KOSMİK UÇUŞ OYUNU
+ * Tam həyat döngüsü: Sarı Gül -> Ağ Zəncirotu -> Uçan Bala (Oyunçu) -> Torpağa Eniş -> Yenidən Sarı Gül!
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elementləri
+const scoreDisplay = document.getElementById('scoreDisplay');
+const bestScoreDisplay = document.getElementById('bestScoreDisplay');
+const shieldBadge = document.getElementById('shieldBadge');
+const runSummaryCard = document.getElementById('runSummaryCard');
+const lastScoreVal = document.getElementById('lastScoreVal');
+const summaryBestVal = document.getElementById('summaryBestVal');
+const statusTextEl = document.getElementById('statusText');
+const statusIconEl = document.getElementById('statusIcon');
+const statusBadgeEl = document.getElementById('statusBadge');
+const soundToggleBtn = document.getElementById('soundToggle');
+const soundOnIcon = document.getElementById('soundOnIcon');
+const soundOffIcon = document.getElementById('soundOffIcon');
+
+// --- WEB AUDIO API SƏS MÜHƏRRİKİ ---
+let audioCtx = null;
+let isMuted = false;
+
+soundToggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isMuted = !isMuted;
+    soundOnIcon.classList.toggle('hidden', isMuted);
+    soundOffIcon.classList.toggle('hidden', !isMuted);
+});
+
+function initAudio() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+// Sehrli çevrilmə / böyümə zəngi
+function playMagicChime(baseFreq = 523.25) {
+    if (isMuted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2];
+    notes.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.055);
+
+        gain.gain.setValueAtTime(0.001, now + idx * 0.055);
+        gain.gain.exponentialRampToValueAtTime(0.075, now + idx * 0.055 + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.055 + 0.5);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now + idx * 0.055);
+        osc.stop(now + idx * 0.055 + 0.55);
+    });
+}
+
+// Yuxarı qanad çalma / süzülmə səsi
+function playFlapSound() {
+    if (isMuted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(310, now);
+    osc.frequency.exponentialRampToValueAtTime(560, now + 0.14);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.06, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.18);
+}
+
+// Ulduz tozu toplama zəngi
+function playCollectSound(combo = 0) {
+    if (isMuted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const freq = 660 + Math.min(combo, 12) * 35;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.45, now + 0.14);
+
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.085, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.28);
+}
+
+// Üfürmə külək səsi
+function playWindWhoosh() {
+    if (isMuted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const bufferSize = audioCtx.sampleRate * 1.3;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = audioCtx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(280, now);
+    filter.frequency.exponentialRampToValueAtTime(720, now + 0.45);
+    filter.frequency.exponentialRampToValueAtTime(220, now + 1.3);
+    filter.Q.value = 2.4;
+
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.linearRampToValueAtTime(0.13, now + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.3);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+    noise.start(now);
+}
+
+// Yumşaq yerə düşmə / toxunma səsi
+function playSoftThud() {
+    if (isMuted) return;
+    initAudio();
+    if (!audioCtx) return;
+
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(190, now);
+    osc.frequency.exponentialRampToValueAtTime(68, now + 0.28);
+
+    gain.gain.setValueAtTime(0.11, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+}
+
+// --- OYUN VƏZİYYƏTLƏRİ VƏ DƏYİŞƏNLƏR ---
+let W = 0, H = 0, dpr = 1;
+let globalTime = 0;
+
+// Fazalar:
+// 'FLOWER_YELLOW' -> Sarı gül gülümsəyir, toxunma gözləyir
+// 'FLOWER_WHITE'  -> Ağ pambıq zəncirotu oldu, üfürmə gözləyir
+// 'LAUNCHING'     -> Gül balanı üfürür, kamera oyunçuya keçir
+// 'PLAYING'       -> Aktiv uçuş oyunu (Oyunçu = Bala Zəncirotu Toxumu)
+// 'FALLING'       -> Maneəyə dəydi və ya yerə enir, torpağa yumşaq düşür
+// 'SPROUTING'     -> Torpağa düşdüyü yerdə yeni sarı gül böyüyür!
+let gameState = 'FLOWER_YELLOW';
+let stateTimer = 0;
+let hasPlayedBefore = false;
+
+// Xal sistemi
+let score = 0;
+let bestScore = parseInt(localStorage.getItem('dandelion_best_score') || '0', 10);
+let distanceCounter = 0;
+let stardustCombo = 0;
+bestScoreDisplay.textContent = bestScore;
+
+// İnteraktiv kursor/toxunuş
+let pointer = { x: 0, y: 0, active: false, isDown: false };
+
+// Gülün koordinatları (başlanğıcda mərkəzdə, yenidən doğulanda düşdüyü yerdə!)
+let flowerAnchorX = 0;
+let flowerCenter = { x: 0, y: 0, radius: 85 };
+let bounceScale = 1.0;
+let bounceVel = 0;
+let expressionTimer = 0;
+let blinkTimer = 0;
+let isBlinking = false;
+let sproutProgress = 0;
+
+// Oyunçu (Bala Zəncirotu Toxumu)
+const player = {
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    radius: 22,
+    rotation: 0,
+    flapAnim: 0,
+    hasShield: false,
+    shieldCharge: 0, // 5 ulduz tozu toplayanda 1 qalxan qazanır
+    invulnTimer: 0,
+    trail: []
+};
+
+// Dünya sürəti və obyektlər
+let worldSpeed = 3.2;
+let groundScroll = 0;
+let obstacleSpawnTimer = 0;
+let collectibleSpawnTimer = 0;
+
+let stars = [];
+let fireflies = [];
+let petals = [];
+let puffFluffs = [];
+let sparkles = [];
+let backgroundSeeds = [];
+let obstacles = [];
+let collectibles = [];
+
+// --- EKRAN ÖLÇÜLƏRİ VƏ İLKİN QURAŞDIRMA ---
+function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (flowerAnchorX === 0) {
+        flowerAnchorX = W * 0.5;
+    } else {
+        flowerAnchorX = Math.max(80, Math.min(W - 80, flowerAnchorX));
+    }
+
+    if (!pointer.active) {
+        pointer.x = W * 0.5;
+        pointer.y = H * 0.45;
+    }
+
+    initStars();
+    initFireflies();
+    initFlowerGeometry();
+}
+
+function initStars() {
+    stars = [];
+    const count = Math.floor((W * H) / 6200);
+    for (let i = 0; i < count; i++) {
+        stars.push({
+            x: Math.random() * W,
+            y: Math.random() * (H * 0.86),
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.02 + Math.random() * 0.035,
+            parallax: 0.15 + Math.random() * 0.45,
+            type: Math.random() > 0.72 ? 'cross' : (Math.random() > 0.4 ? 'star' : 'dot'),
+            size: 10 + Math.random() * 5
+        });
+    }
+}
+
+function initFireflies() {
+    fireflies = [];
+    const count = Math.min(26, Math.floor(W / 48));
+    const chars = ['*', '+', '.', '°', '~'];
+    for (let i = 0; i < count; i++) {
+        fireflies.push({
+            x: Math.random() * W,
+            y: Math.random() * (H * 0.85),
+            vx: (Math.random() - 0.5) * 0.35,
+            vy: -0.15 - Math.random() * 0.25,
+            phase: Math.random() * Math.PI * 2,
+            char: chars[i % chars.length],
+            isGold: Math.random() > 0.45
+        });
+    }
+}
+
+function initFlowerGeometry() {
+    petals = [];
+    const layers = [
+        { count: 26, radiusMult: 1.00, lenMult: 0.46, width: 11, color: '#f59e0b', char: '#' },
+        { count: 22, radiusMult: 0.84, lenMult: 0.42, width: 10, color: '#fbbf24', char: '@' },
+        { count: 18, radiusMult: 0.68, lenMult: 0.36, width: 9,  color: '#fcd34d', char: '*' },
+        { count: 14, radiusMult: 0.52, lenMult: 0.28, width: 8,  color: '#fef08a', char: '+' }
+    ];
+
+    layers.forEach((layer, lIdx) => {
+        for (let i = 0; i < layer.count; i++) {
+            const angle = (i / layer.count) * Math.PI * 2 + lIdx * 0.22;
+            petals.push({
+                angle,
+                layer: lIdx,
+                radiusMult: layer.radiusMult,
+                lenMult: layer.lenMult,
+                width: layer.width,
+                color: layer.color,
+                char: layer.char,
+                wobblePhase: Math.random() * Math.PI * 2
+            });
+        }
+    });
+
+    puffFluffs = [];
+    const totalFluffs = 64;
+    for (let i = 0; i < totalFluffs; i++) {
+        const y = 1 - (i / (totalFluffs - 1)) * 2;
+        const rAtY = Math.sqrt(1 - y * y);
+        const theta = i * 2.399963229728653;
+        puffFluffs.push({
+            nx: Math.cos(theta) * rAtY,
+            ny: y,
+            nz: Math.sin(theta) * rAtY,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+}
+
+window.addEventListener('resize', resize);
+resize();
+
+// --- UI VƏ STATUS YENİLƏMƏLƏRİ ---
+function updateStatusUI() {
+    if (gameState === 'FLOWER_YELLOW') {
+        statusIconEl.textContent = '@';
+        statusIconEl.className = 'ascii-font text-amber-400 font-bold text-lg';
+        statusBadgeEl.style.borderColor = 'rgba(251, 191, 36, 0.45)';
+        statusTextEl.textContent = hasPlayedBefore
+            ? 'Yenidən uçurtmaq üçün gülə toxun! 🌼'
+            : 'Sarı gülə toxun ✨';
+    } else if (gameState === 'FLOWER_WHITE') {
+        statusIconEl.textContent = '*';
+        statusIconEl.className = 'ascii-font text-sky-300 font-bold text-lg';
+        statusBadgeEl.style.borderColor = 'rgba(125, 211, 252, 0.5)';
+        statusTextEl.textContent = 'Üfürmək və uçmağa başlamaq üçün toxun! 🌬️';
+    } else if (gameState === 'LAUNCHING' || gameState === 'PLAYING') {
+        statusIconEl.textContent = '^';
+        statusIconEl.className = 'ascii-font text-emerald-300 font-bold text-lg';
+        statusBadgeEl.style.borderColor = 'rgba(52, 211, 153, 0.4)';
+        statusTextEl.textContent = 'Yuxarı süzülmək üçün toxun və ya Boşluq (Space) bas! ✨';
+    } else if (gameState === 'FALLING') {
+        statusIconEl.textContent = '~';
+        statusIconEl.className = 'ascii-font text-amber-200 font-bold text-lg';
+        statusBadgeEl.style.borderColor = 'rgba(253, 230, 138, 0.35)';
+        statusTextEl.textContent = 'Bala yumşaqca torpağa enir... 🍃';
+    } else if (gameState === 'SPROUTING') {
+        statusIconEl.textContent = '+';
+        statusIconEl.className = 'ascii-font text-emerald-400 font-bold text-lg';
+        statusBadgeEl.style.borderColor = 'rgba(52, 211, 153, 0.45)';
+        statusTextEl.textContent = 'Torpaqdan yeni sarı gül cücərir! 🌱';
+    }
+}
+
+function addScore(points) {
+    score += points;
+    scoreDisplay.textContent = score;
+    if (score > bestScore) {
+        bestScore = score;
+        bestScoreDisplay.textContent = bestScore;
+        localStorage.setItem('dandelion_best_score', bestScore.toString());
+    }
+}
+
+function spawnSparkles(x, y, colorPalette, count = 28) {
+    const chars = ['*', '+', '@', '✦', '•', '~'];
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1.4 + Math.random() * 4.2;
+        sparkles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.8,
+            life: 1.0,
+            decay: 0.018 + Math.random() * 0.018,
+            char: chars[Math.floor(Math.random() * chars.length)],
+            color: colorPalette[Math.floor(Math.random() * colorPalette.length)],
+            size: 12 + Math.random() * 8
+        });
+    }
+}
+
+// --- OYUNÇU BALA TOXUMU HAVAYA BURAX ---
+function launchPlayerSeed() {
+    gameState = 'LAUNCHING';
+    stateTimer = 0;
+    score = 0;
+    distanceCounter = 0;
+    stardustCombo = 0;
+    scoreDisplay.textContent = '0';
+    runSummaryCard.classList.add('hidden');
+
+    obstacles = [];
+    collectibles = [];
+    obstacleSpawnTimer = 1.1;
+    collectibleSpawnTimer = 0.4;
+    worldSpeed = Math.max(3.1, W * 0.0028);
+
+    // Oyunçu balanı gülün başından çıxar
+    player.x = flowerCenter.x;
+    player.y = flowerCenter.y - 10;
+    player.vx = 2.2;
+    player.vy = -5.6;
+    player.rotation = 0;
+    player.flapAnim = 1.0;
+    player.hasShield = false;
+    player.shieldCharge = 0;
+    player.invulnTimer = 0;
+    player.trail = [];
+    shieldBadge.classList.add('hidden');
+    shieldBadge.classList.remove('flex');
+
+    // Arxa planda digər bacı-qardaş toxumlar da uçuşsun
+    backgroundSeeds = [];
+    for (let i = 0; i < 24; i++) {
+        const ang = (i / 24) * Math.PI * 2;
+        backgroundSeeds.push({
+            x: flowerCenter.x + Math.cos(ang) * 20,
+            y: flowerCenter.y + Math.sin(ang) * 20,
+            vx: Math.cos(ang) * (1.5 + Math.random() * 2.5) + 1.2,
+            vy: Math.sin(ang) * (1.5 + Math.random() * 2) - 2.2,
+            phase: Math.random() * Math.PI * 2,
+            alpha: 0.95,
+            scale: 0.65 + Math.random() * 0.35
+        });
+    }
+
+    playWindWhoosh();
+    spawnSparkles(flowerCenter.x, flowerCenter.y, ['#ffffff', '#bae6fd', '#fef08a'], 34);
+    updateStatusUI();
+}
+
+// --- İSTİFADƏÇİ İDARƏETMƏSİ (TOXUNUŞ, KLİK, KLAVİATURA) ---
+function handleActionInput(clientX, clientY) {
+    if (clientX !== undefined && clientY !== undefined) {
+        pointer.x = clientX;
+        pointer.y = clientY;
+        pointer.active = true;
+    }
+
+    if (gameState === 'FLOWER_YELLOW') {
+        bounceVel = 0.16;
+        expressionTimer = 1.2;
+        gameState = 'FLOWER_WHITE';
+        stateTimer = 0;
+        runSummaryCard.classList.add('hidden');
+        playMagicChime(587.33);
+        spawnSparkles(flowerCenter.x, flowerCenter.y, ['#ffffff', '#bae6fd', '#fef08a', '#e0f2fe'], 38);
+        updateStatusUI();
+    } else if (gameState === 'FLOWER_WHITE') {
+        bounceVel = 0.18;
+        launchPlayerSeed();
+    } else if (gameState === 'LAUNCHING' || gameState === 'PLAYING') {
+        // Yuxarı zərif qanad çalma / süzülmə impulsu
+        player.vy = -5.7;
+        player.flapAnim = 1.0;
+        playFlapSound();
+        spawnSparkles(player.x - 6, player.y + 14, ['#fef08a', '#ffffff', '#bae6fd'], 5);
+    } else if (gameState === 'SPROUTING' && sproutProgress > 0.65) {
+        sproutProgress = 1.0;
+        gameState = 'FLOWER_YELLOW';
+        playMagicChime(523.25);
+        updateStatusUI();
+    }
+}
+
+canvas.addEventListener('mousedown', (e) => {
+    pointer.isDown = true;
+    handleActionInput(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', () => { pointer.isDown = false; });
+
+canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 0) {
+        e.preventDefault();
+        pointer.isDown = true;
+        handleActionInput(e.touches[0].clientX, e.touches[0].clientY);
+    }
+}, { passive: false });
+window.addEventListener('touchend', () => { pointer.isDown = false; });
+
+canvas.addEventListener('mousemove', (e) => {
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+        e.preventDefault();
+        if (!e.repeat) {
+            handleActionInput();
+        }
+    }
+});
+
+// --- MANEƏLƏR VƏ ULDUZ TOZU YARATMA ---
+function spawnObstacle() {
+    const groundY = H * 0.86;
+    const minGap = Math.max(155, H * 0.27); // Cizgi filmi kimi ədalətli və rahat keçid boşluğu
+    const marginTop = 75;
+    const marginBottom = 75;
+    const availableH = groundY - marginTop - marginBottom - minGap;
+    const gapY = marginTop + Math.random() * Math.max(40, availableH);
+
+    // Tikanlı gecə kolu (aşağıdan və ya yuxarıdan/hər ikisindən)
+    const pattern = Math.random();
+    if (pattern < 0.55) {
+        // Həm yuxarıdan asılan tikanlı sarmaşıq, həm aşağıdan çıxan tikanlı kol
+        obstacles.push({
+            x: W + 60,
+            topHeight: gapY,
+            bottomY: gapY + minGap,
+            width: 46,
+            passed: false,
+            swayPhase: Math.random() * Math.PI * 2,
+            type: 'dual_vine'
+        });
+    } else if (pattern < 0.78) {
+        // Yalnız aşağıdan çıxan hündür tikanlı qanqal
+        const h = Math.min(groundY * 0.58, 160 + Math.random() * 140);
+        obstacles.push({
+            x: W + 60,
+            topHeight: 0,
+            bottomY: groundY - h,
+            width: 52,
+            passed: false,
+            swayPhase: Math.random() * Math.PI * 2,
+            type: 'bottom_thistle'
+        });
+    } else {
+        // Havada süzülən tünd fırtına buludu
+        const cloudY = 95 + Math.random() * (groundY - 220);
+        obstacles.push({
+            x: W + 70,
+            y: cloudY,
+            radius: 36,
+            passed: false,
+            swayPhase: Math.random() * Math.PI * 2,
+            type: 'storm_cloud'
+        });
+    }
+}
+
+function spawnCollectible() {
+    const groundY = H * 0.86;
+    const cy = 85 + Math.random() * (groundY - 165);
+    const isSuperStar = Math.random() > 0.82;
+    collectibles.push({
+        x: W + 40,
+        y: cy,
+        radius: isSuperStar ? 18 : 14,
+        phase: Math.random() * Math.PI * 2,
+        isSuper: isSuperStar,
+        collected: false
+    });
+}
+
+// --- UDUZMA VƏ TORPAĞA ENİŞ DÖNGÜSÜ ---
+function triggerSeedFall() {
+    if (gameState === 'FALLING' || gameState === 'SPROUTING') return;
+    gameState = 'FALLING';
+    stateTimer = 0;
+    player.vx = 0.6;
+    player.vy = -2.2; // Əvvəl yüngülcə sıçrayıb sonra süzülərək yerə enir
+    playSoftThud();
+    spawnSparkles(player.x, player.y, ['#fef08a', '#ffffff', '#fb7185'], 22);
+    updateStatusUI();
+}
+
+// --- RƏSM FUNKSİYALARI ---
+
+// 1. Kosmik ASCII ulduzlu gecə fonu və çəmənlik
+function drawBackground(scrollSpeed) {
+    const bgGrad = ctx.createRadialGradient(W * 0.5, H * 0.4, 20, W * 0.5, H * 0.5, Math.max(W, H) * 0.78);
+    bgGrad.addColorStop(0, '#0a0f22');
+    bgGrad.addColorStop(0.55, '#050711');
+    bgGrad.addColorStop(1, '#020306');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Parıldayan ASCII ulduzlar (+, *, .)
+    for (let s of stars) {
+        s.phase += s.speed;
+        s.x -= scrollSpeed * s.parallax;
+        if (s.x < -15) s.x = W + 15;
+
+        const b = (Math.sin(s.phase) + 1) * 0.5;
+        if (b < 0.2) continue;
+
+        const alpha = 0.2 + b * 0.75;
+        ctx.font = `bold ${Math.round(s.size)}px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = `rgba(210, 228, 255, ${alpha})`;
+
+        if (s.type === 'cross' && b > 0.65) {
+            ctx.fillText('+', s.x, s.y);
+            ctx.font = `9px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = `rgba(160, 195, 255, ${alpha * 0.55})`;
+            ctx.fillText('-', s.x - 7, s.y);
+            ctx.fillText('-', s.x + 7, s.y);
+            ctx.fillText('|', s.x, s.y - 8);
+            ctx.fillText('|', s.x, s.y + 8);
+        } else if (s.type === 'star') {
+            ctx.fillText('*', s.x, s.y);
+        } else {
+            ctx.fillText('.', s.x, s.y);
+        }
+    }
+
+    // İşıq böcəkləri
+    for (let f of fireflies) {
+        f.x += f.vx - scrollSpeed * 0.45 + Math.sin(globalTime + f.phase) * 0.25;
+        f.y += f.vy;
+        f.phase += 0.04;
+        if (f.y < -20) { f.y = H * 0.85; f.x = Math.random() * W; }
+        if (f.x < -20) f.x = W + 20;
+        if (f.x > W + 20) f.x = -20;
+
+        const glow = (Math.sin(f.phase) + 1) * 0.5;
+        ctx.font = `bold 12px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = f.isGold
+            ? `rgba(253, 224, 71, ${0.18 + glow * 0.55})`
+            : `rgba(147, 197, 253, ${0.18 + glow * 0.5})`;
+        ctx.fillText(f.char, f.x, f.y);
+    }
+
+    // Aşağıda yumşaq gecə torpağı / çəmənlik
+    const groundY = H * 0.86;
+    const hillGrad = ctx.createLinearGradient(0, groundY - 12, 0, H);
+    hillGrad.addColorStop(0, '#0f2e24');
+    hillGrad.addColorStop(0.35, '#091e18');
+    hillGrad.addColorStop(1, '#030907');
+    ctx.fillStyle = hillGrad;
+    ctx.fillRect(0, groundY, W, H - groundY);
+
+    // Torpağın üst işıqlı xətti
+    ctx.strokeStyle = 'rgba(52, 211, 153, 0.32)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(W, groundY);
+    ctx.stroke();
+
+    // Hərəkətli ASCII ot simvolları (~, ", .)
+    groundScroll = (groundScroll + scrollSpeed) % 24;
+    ctx.font = `bold 12px 'JetBrains Mono', monospace`;
+    ctx.fillStyle = 'rgba(52, 211, 153, 0.38)';
+    for (let gx = -groundScroll; gx < W + 24; gx += 24) {
+        const sway = Math.sin(globalTime * 1.6 + gx * 0.05) * 2;
+        const sym = (Math.floor((gx + groundScroll) / 24) % 2 === 0) ? '~' : '"';
+        ctx.fillText(sym, gx + sway, groundY + 10);
+    }
+}
+
+// 2. Yaşıl gövdə və zəncirotunun dişli yarpaqları
+function drawStemAndLeaves(baseX, baseY, headX, headY, stemGrow, opacity) {
+    if (opacity <= 0.01 || stemGrow <= 0.01) return;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    const cpX = baseX + (headX - baseX) * 0.35;
+    const cpY = baseY - (baseY - headY) * 0.55;
+
+    const stemGrad = ctx.createLinearGradient(baseX, baseY, headX, headY);
+    stemGrad.addColorStop(0, '#065f46');
+    stemGrad.addColorStop(0.5, '#10b981');
+    stemGrad.addColorStop(1, '#34d399');
+
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(8, Math.min(W, H) * 0.015);
+    ctx.strokeStyle = stemGrad;
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.quadraticCurveTo(cpX, cpY, headX, headY);
+    ctx.stroke();
+
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(167, 243, 208, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(baseX - 2, baseY);
+    ctx.quadraticCurveTo(cpX - 2, cpY, headX - 2, headY);
+    ctx.stroke();
+
+    // Dibdə dişli yarpaqlar
+    if (stemGrow > 0.25) {
+        const leafScale = Math.min(1, (stemGrow - 0.25) / 0.45);
+        const leafSize = Math.min(W, H) * 0.12 * leafScale;
+
+        [-1, 1].forEach((dir) => {
+            ctx.save();
+            ctx.translate(baseX, baseY - 2);
+            const swayAngle = dir * (0.55 + Math.sin(globalTime * 1.6 + dir) * 0.06);
+            ctx.rotate(swayAngle);
+
+            const leafGrad = ctx.createLinearGradient(0, 0, dir * leafSize, -leafSize * 0.5);
+            leafGrad.addColorStop(0, '#047857');
+            leafGrad.addColorStop(1, '#34d399');
+
+            ctx.fillStyle = leafGrad;
+            ctx.strokeStyle = '#6ee7b7';
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(dir * leafSize * 0.35, -leafSize * 0.35, dir * leafSize * 0.55, -leafSize * 0.18);
+            ctx.lineTo(dir * leafSize * 0.68, -leafSize * 0.36);
+            ctx.quadraticCurveTo(dir * leafSize * 0.88, -leafSize * 0.25, dir * leafSize, -leafSize * 0.05);
+            ctx.quadraticCurveTo(dir * leafSize * 0.65, leafSize * 0.18, 0, 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        });
+    }
+
+    ctx.restore();
+}
+
+// 3. Sarı Zəncirotu Tacı
+function drawYellowCrown(cx, cy, radius) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const aura = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.45);
+    aura.addColorStop(0, 'rgba(251, 191, 36, 0.45)');
+    aura.addColorStop(0.55, 'rgba(245, 158, 11, 0.15)');
+    aura.addColorStop(1, 'rgba(245, 158, 11, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let p of petals) {
+        const wobble = Math.sin(globalTime * 2.2 + p.wobblePhase) * 0.04;
+        const ang = p.angle + wobble + Math.sin(globalTime * 0.4) * 0.08;
+        const pLen = radius * p.lenMult;
+        const startDist = radius * (p.radiusMult - p.lenMult * 0.65);
+
+        ctx.save();
+        ctx.rotate(ang);
+
+        const pGrad = ctx.createLinearGradient(startDist, 0, startDist + pLen, 0);
+        pGrad.addColorStop(0, '#d97706');
+        pGrad.addColorStop(0.5, p.color);
+        pGrad.addColorStop(1, '#fef9c3');
+
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.moveTo(startDist, -p.width * 0.35);
+        ctx.quadraticCurveTo(startDist + pLen * 0.6, -p.width * 0.65, startDist + pLen, 0);
+        ctx.quadraticCurveTo(startDist + pLen * 0.6, p.width * 0.65, startDist, p.width * 0.35);
+        ctx.closePath();
+        ctx.fill();
+
+        if (p.layer <= 1) {
+            ctx.font = `bold 11px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = 'rgba(255, 251, 235, 0.85)';
+            ctx.fillText(p.char, startDist + pLen * 0.72, 0);
+        }
+        ctx.restore();
+    }
+
+    const coreGrad = ctx.createRadialGradient(-radius * 0.15, -radius * 0.15, radius * 0.05, 0, 0, radius * 0.66);
+    coreGrad.addColorStop(0, '#fef08a');
+    coreGrad.addColorStop(0.65, '#facc15');
+    coreGrad.addColorStop(1, '#eab308');
+
+    ctx.fillStyle = coreGrad;
+    ctx.shadowColor = 'rgba(250, 204, 21, 0.6)';
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.64, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+}
+
+// 4. Ağ Zəncirotu Tacı
+function drawWhitePuffCrown(cx, cy, radius) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const aura = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 1.55);
+    aura.addColorStop(0, 'rgba(224, 242, 254, 0.42)');
+    aura.addColorStop(0.55, 'rgba(125, 211, 252, 0.14)');
+    aura.addColorStop(1, 'rgba(125, 211, 252, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    const rotY = globalTime * 0.35;
+    const sorted = puffFluffs.map(f => {
+        const x = f.nx * Math.cos(rotY) - f.nz * Math.sin(rotY);
+        const z = f.nx * Math.sin(rotY) + f.nz * Math.cos(rotY);
+        return { x, y: f.ny, z, phase: f.phase };
+    }).sort((a, b) => a.z - b.z);
+
+    for (let f of sorted) {
+        const distFromCenter = Math.hypot(f.x, f.y);
+        const isFrontCenter = (f.z > 0.25 && distFromCenter < 0.62);
+        const alpha = isFrontCenter ? 0.14 : (0.45 + (f.z + 1) * 0.27);
+
+        const innerR = radius * 0.35;
+        const outerR = radius * (1.06 + Math.sin(globalTime * 2 + f.phase) * 0.04);
+
+        ctx.strokeStyle = `rgba(226, 232, 240, ${alpha * 0.7})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(f.x * innerR, f.y * innerR);
+        ctx.lineTo(f.x * outerR, f.y * outerR);
+        ctx.stroke();
+
+        ctx.font = `bold ${f.z > 0 ? 13 : 10}px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = `rgba(248, 250, 252, ${alpha})`;
+        ctx.fillText(f.z > 0.2 ? '*' : '+', f.x * outerR, f.y * outerR);
+    }
+
+    const coreGrad = ctx.createRadialGradient(-radius * 0.12, -radius * 0.12, radius * 0.05, 0, 0, radius * 0.62);
+    coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.96)');
+    coreGrad.addColorStop(0.7, 'rgba(224, 242, 254, 0.92)');
+    coreGrad.addColorStop(1, 'rgba(186, 230, 253, 0.85)');
+
+    ctx.fillStyle = coreGrad;
+    ctx.shadowColor = 'rgba(186, 230, 253, 0.75)';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.60, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+}
+
+// 5. İri Parıltılı Cizgi Filmi Üzü (Həm gül, həm də bala toxum üçün istifadə olunur!)
+function drawCuteFace(cx, cy, radius, mood = 'happy', lookTarget = null) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    let lookX = 0, lookY = 0;
+    if (lookTarget) {
+        const dx = lookTarget.x - cx;
+        const dy = lookTarget.y - cy;
+        const dist = Math.hypot(dx, dy) || 1;
+        const lookMax = radius * 0.045;
+        lookX = (dx / dist) * Math.min(lookMax, dist * 0.02);
+        lookY = (dy / dist) * Math.min(lookMax, dist * 0.02);
+    }
+
+    const eyeOffsetX = radius * 0.25;
+    const eyeOffsetY = -radius * 0.06;
+    const eyeRadiusX = radius * 0.14;
+    const eyeRadiusY = radius * 0.17;
+
+    // Yanaq qızartısı
+    const cheekY = radius * 0.12;
+    const cheekX = radius * 0.35;
+    [-1, 1].forEach(dir => {
+        const blushGrad = ctx.createRadialGradient(dir * cheekX, cheekY, 1, dir * cheekX, cheekY, radius * 0.14);
+        blushGrad.addColorStop(0, 'rgba(251, 113, 133, 0.72)');
+        blushGrad.addColorStop(1, 'rgba(251, 113, 133, 0)');
+        ctx.fillStyle = blushGrad;
+        ctx.beginPath();
+        ctx.ellipse(dir * cheekX, cheekY, radius * 0.14, radius * 0.09, 0, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    // Gözlər
+    [-1, 1].forEach(dir => {
+        const ex = dir * eyeOffsetX;
+        const ey = eyeOffsetY;
+
+        if (mood === 'dizzy') {
+            // Yerə düşəndə şirin (> <) göz mimikası
+            ctx.strokeStyle = '#291509';
+            ctx.lineWidth = Math.max(2.5, radius * 0.04);
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(ex - dir * eyeRadiusX * 0.6, ey - eyeRadiusY * 0.5);
+            ctx.lineTo(ex + dir * eyeRadiusX * 0.5, ey);
+            ctx.lineTo(ex - dir * eyeRadiusX * 0.6, ey + eyeRadiusY * 0.5);
+            ctx.stroke();
+        } else if (isBlinking && mood !== 'excited') {
+            ctx.strokeStyle = '#291509';
+            ctx.lineWidth = Math.max(2.5, radius * 0.035);
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(ex, ey, eyeRadiusX * 0.85, 0.15 * Math.PI, 0.85 * Math.PI);
+            ctx.stroke();
+        } else if (mood === 'excited') {
+            ctx.strokeStyle = '#291509';
+            ctx.lineWidth = Math.max(3, radius * 0.042);
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(ex, ey + eyeRadiusY * 0.25, eyeRadiusX * 0.85, 1.15 * Math.PI, 1.85 * Math.PI);
+            ctx.stroke();
+        } else {
+            // İri, parıltılı Pixar/Anime gözləri
+            const irisGrad = ctx.createRadialGradient(
+                ex + lookX, ey + lookY - eyeRadiusY * 0.2, eyeRadiusX * 0.1,
+                ex + lookX, ey + lookY, eyeRadiusY
+            );
+            irisGrad.addColorStop(0, '#1e1b4b');
+            irisGrad.addColorStop(0.65, '#291509');
+            irisGrad.addColorStop(1, '#090502');
+
+            ctx.fillStyle = irisGrad;
+            ctx.beginPath();
+            ctx.ellipse(ex + lookX * 0.5, ey + lookY * 0.5, eyeRadiusX, eyeRadiusY, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.55)';
+            ctx.beginPath();
+            ctx.ellipse(ex + lookX * 0.6, ey + lookY * 0.6 + eyeRadiusY * 0.42, eyeRadiusX * 0.65, eyeRadiusY * 0.32, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ex + lookX - eyeRadiusX * 0.32, ey + lookY - eyeRadiusY * 0.34, eyeRadiusX * 0.36, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(ex + lookX + eyeRadiusX * 0.32, ey + lookY + eyeRadiusY * 0.25, eyeRadiusX * 0.16, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+
+    // Burun
+    const noseY = radius * 0.08;
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.ellipse(0, noseY, radius * 0.06, radius * 0.04, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ağız
+    const mouthY = radius * 0.23;
+    ctx.strokeStyle = '#291509';
+    ctx.lineWidth = Math.max(2.2, radius * 0.035);
+    ctx.lineCap = 'round';
+
+    if (mood === 'blowing' || mood === 'dizzy') {
+        ctx.fillStyle = '#be123c';
+        ctx.beginPath();
+        ctx.ellipse(0, mouthY + radius * 0.02, radius * 0.08, radius * 0.095, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    } else if (mood === 'excited' || mood === 'flying') {
+        ctx.fillStyle = '#9f1239';
+        ctx.beginPath();
+        ctx.arc(0, mouthY - radius * 0.02, radius * 0.14, 0.08 * Math.PI, 0.92 * Math.PI);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#fb7185';
+        ctx.beginPath();
+        ctx.arc(0, mouthY + radius * 0.065, radius * 0.075, Math.PI, 2 * Math.PI);
+        ctx.fill();
+    } else {
+        ctx.beginPath();
+        ctx.arc(-radius * 0.065, mouthY - radius * 0.02, radius * 0.068, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(radius * 0.065, mouthY - radius * 0.02, radius * 0.068, 0.1 * Math.PI, 0.9 * Math.PI);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+// 6. OYUNÇU: Qəhrəman Bala Zəncirotu Toxumu (Paraşüt çətiri + şirin üzlü qızılı toxum)
+function drawHeroBabySeed() {
+    // İşıqlı iz (trail)
+    for (let i = 0; i < player.trail.length; i++) {
+        const pt = player.trail[i];
+        const ratio = (i + 1) / player.trail.length;
+        ctx.font = `bold ${Math.round(9 + ratio * 5)}px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = `rgba(253, 224, 71, ${ratio * 0.45})`;
+        ctx.fillText(i % 2 === 0 ? '*' : '.', pt.x, pt.y);
+    }
+
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.rotation);
+
+    // Zərif qızılı-gümüşü aura
+    const aura = ctx.createRadialGradient(0, -6, 4, 0, -6, 48);
+    aura.addColorStop(0, 'rgba(254, 240, 138, 0.45)');
+    aura.addColorStop(0.6, 'rgba(186, 230, 253, 0.15)');
+    aura.addColorStop(1, 'rgba(186, 230, 253, 0)');
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(0, -6, 48, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Aktiv Qalxan Haləsi (5 ulduz tozu topladıqda)
+    if (player.hasShield) {
+        ctx.strokeStyle = `rgba(52, 211, 153, ${0.65 + Math.sin(globalTime * 6) * 0.25})`;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.arc(0, -4, 34, globalTime * 2, globalTime * 2 + Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Yuxarıdakı Pambıq Paraşüt Çətiri (qanad çalanda genişlənib-yığılır)
+    const spread = 1.0 + player.flapAnim * 0.28 + Math.sin(globalTime * 4) * 0.05;
+    const rays = [-0.75, -0.45, -0.2, 0, 0.2, 0.45, 0.75];
+
+    rays.forEach((rAng, idx) => {
+        const ang = rAng * spread;
+        const tipX = Math.sin(ang) * 32;
+        const tipY = -12 - Math.cos(ang) * 26;
+
+        ctx.strokeStyle = 'rgba(240, 249, 255, 0.88)';
+        ctx.lineWidth = 1.7;
+        ctx.beginPath();
+        ctx.moveTo(0, -10);
+        ctx.quadraticCurveTo(tipX * 0.55, -18, tipX, tipY);
+        ctx.stroke();
+
+        // Çətir ucunda parıldayan ASCII simvollar
+        ctx.font = `bold 12px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#bae6fd';
+        ctx.fillText(idx % 2 === 0 ? '*' : '+', tipX, tipY - 2);
+    });
+
+    // İncə saplaq
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.lineTo(0, 2);
+    ctx.stroke();
+
+    // Aşağıda şirin, yumru, qızılı-sarı Bala Toxum Bədəni (Üzü aydın görünür!)
+    const bodyR = 16.5;
+    const bodyGrad = ctx.createRadialGradient(-4, 11, 2, 0, 14, bodyR);
+    bodyGrad.addColorStop(0, '#fef9c3');
+    bodyGrad.addColorStop(0.6, '#facc15');
+    bodyGrad.addColorStop(1, '#d97706');
+
+    ctx.fillStyle = bodyGrad;
+    ctx.shadowColor = 'rgba(250, 204, 21, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, 14, bodyR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Bala toxumun şirin cizgi filmi üzü!
+    const faceMood = (gameState === 'FALLING') ? 'dizzy' : (player.flapAnim > 0.35 ? 'flying' : 'happy');
+    drawCuteFace(0, 14, bodyR * 1.35, faceMood, { x: player.x + 80, y: player.y + player.vy * 12 });
+
+    ctx.restore();
+}
+
+// 7. Maneələr (Tikanlı Gecə Kolları və Fırtına Buludları)
+function drawObstacles() {
+    for (let obs of obstacles) {
+        if (obs.type === 'storm_cloud') {
+            ctx.save();
+            ctx.translate(obs.x, obs.y);
+            const r = obs.radius;
+
+            // Tünd bənövşəyi-göy fırtına buludu
+            const cGrad = ctx.createRadialGradient(0, -8, 4, 0, 0, r * 1.35);
+            cGrad.addColorStop(0, '#4c1d95');
+            cGrad.addColorStop(0.65, '#1e1b4b');
+            cGrad.addColorStop(1, '#0f172a');
+
+            ctx.fillStyle = cGrad;
+            ctx.strokeStyle = 'rgba(167, 139, 250, 0.45)';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+            ctx.arc(-r * 0.65, 6, r * 0.62, 0, Math.PI * 2);
+            ctx.arc(r * 0.65, 6, r * 0.62, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // ASCII ildırım və yağış simvolları
+            ctx.font = `bold 13px 'JetBrains Mono', monospace`;
+            ctx.fillStyle = '#c4b5fd';
+            ctx.fillText('~@~', 0, -2);
+            ctx.fillStyle = '#fde047';
+            ctx.fillText('⚡', 0, r * 0.75 + Math.sin(globalTime * 8 + obs.swayPhase) * 3);
+            ctx.restore();
+        } else {
+            // Yuxarıdan asılan tikanlı sarmaşıq
+            if (obs.topHeight > 10) {
+                drawThornyVine(obs.x, 0, obs.topHeight, obs.width, true, obs.swayPhase);
+            }
+            // Aşağıdan çıxan tikanlı gecə qanqalı
+            const groundY = H * 0.86;
+            const bottomH = groundY - obs.bottomY;
+            if (bottomH > 10) {
+                drawThornyVine(obs.x, groundY, bottomH, obs.width, false, obs.swayPhase);
+            }
+        }
+    }
+}
+
+function drawThornyVine(x, startY, height, width, isTop, phase) {
+    ctx.save();
+    const dir = isTop ? 1 : -1;
+    const endY = startY + dir * height;
+
+    // Gövdə gradyenti (tünd zümrüd-bənövşəyi gecə kolu)
+    const grad = ctx.createLinearGradient(x - width * 0.5, startY, x + width * 0.5, endY);
+    grad.addColorStop(0, '#1e1b4b');
+    grad.addColorStop(0.5, '#311042');
+    grad.addColorStop(1, '#581c87');
+
+    ctx.fillStyle = grad;
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x - width * 0.48, startY);
+    ctx.lineTo(x - width * 0.34, endY - dir * 16);
+    ctx.quadraticCurveTo(x, endY + dir * 6, x + width * 0.34, endY - dir * 16);
+    ctx.lineTo(x + width * 0.48, startY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Kənarlarda tikanlar və ASCII '#' / 'x' simvolları
+    ctx.font = `bold 12px 'JetBrains Mono', monospace`;
+    const step = 28;
+    for (let d = 22; d < height - 14; d += step) {
+        const ty = startY + dir * d;
+        const side = ((Math.floor(d / step) % 2 === 0) ? 1 : -1);
+
+        // Tikan üçbucağı
+        ctx.fillStyle = '#c084fc';
+        ctx.beginPath();
+        ctx.moveTo(x + side * width * 0.35, ty - 6);
+        ctx.lineTo(x + side * (width * 0.72), ty);
+        ctx.lineTo(x + side * width * 0.35, ty + 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Gövdə üzərində ASCII tekstura
+        ctx.fillStyle = 'rgba(216, 180, 254, 0.65)';
+        ctx.fillText('#', x, ty);
+    }
+
+    ctx.restore();
+}
+
+// 8. Toplanan Ulduz Tozu Damcıları (* və @)
+function drawCollectibles() {
+    for (let c of collectibles) {
+        if (c.collected) continue;
+        c.phase += 0.06;
+        const bobY = c.y + Math.sin(c.phase) * 5;
+
+        ctx.save();
+        ctx.translate(c.x, bobY);
+
+        const glowR = c.radius * 2.2;
+        const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, glowR);
+        if (c.isSuper) {
+            glow.addColorStop(0, 'rgba(52, 211, 153, 0.75)');
+            glow.addColorStop(1, 'rgba(52, 211, 153, 0)');
+        } else {
+            glow.addColorStop(0, 'rgba(253, 224, 71, 0.75)');
+            glow.addColorStop(1, 'rgba(253, 224, 71, 0)');
+        }
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fırlanan ASCII ulduz simvolu
+        ctx.rotate(Math.sin(c.phase * 0.5) * 0.3);
+        ctx.font = `bold ${c.isSuper ? 24 : 20}px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = c.isSuper ? '#6ee7b7' : '#fef08a';
+        ctx.fillText(c.isSuper ? '@' : '*', 0, 0);
+
+        ctx.restore();
+    }
+}
+
+// 9. Arxa plan toxumları və qığılcımlar
+function drawBackgroundSeedsAndSparkles() {
+    for (let i = backgroundSeeds.length - 1; i >= 0; i--) {
+        const s = backgroundSeeds[i];
+        s.phase += 0.05;
+        s.x += s.vx + Math.sin(s.phase) * 0.6;
+        s.y += s.vy;
+        s.alpha -= 0.008;
+
+        if (s.alpha <= 0) {
+            backgroundSeeds.splice(i, 1);
+            continue;
+        }
+
+        ctx.save();
+        ctx.translate(s.x, s.y);
+        ctx.scale(s.scale, s.scale);
+        ctx.globalAlpha = s.alpha;
+        ctx.font = `bold 13px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fillText('*', 0, -8);
+        ctx.strokeStyle = 'rgba(224, 242, 254, 0.7)';
+        ctx.beginPath();
+        ctx.moveTo(0, -6);
+        ctx.lineTo(0, 6);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    for (let i = sparkles.length - 1; i >= 0; i--) {
+        const sp = sparkles[i];
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+        sp.vy += 0.04;
+        sp.life -= sp.decay;
+
+        if (sp.life <= 0) {
+            sparkles.splice(i, 1);
+            continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = sp.life;
+        ctx.font = `bold ${Math.round(sp.size)}px 'JetBrains Mono', monospace`;
+        ctx.fillStyle = sp.color;
+        ctx.fillText(sp.char, sp.x, sp.y);
+        ctx.restore();
+    }
+}
+
+// --- ƏSAS 60FPS OYUN DÖNGÜSÜ ---
+function gameLoop() {
+    globalTime += 0.025;
+    stateTimer += 0.016;
+
+    if (expressionTimer > 0) expressionTimer = Math.max(0, expressionTimer - 0.016);
+    if (player.flapAnim > 0) player.flapAnim = Math.max(0, player.flapAnim - 0.06);
+    if (player.invulnTimer > 0) player.invulnTimer = Math.max(0, player.invulnTimer - 0.016);
+
+    // Yay effekti
+    bounceVel += (1.0 - bounceScale) * 0.14;
+    bounceVel *= 0.78;
+    bounceScale += bounceVel;
+
+    // Göz qırpma
+    blinkTimer += 0.016;
+    if (!isBlinking && blinkTimer > 3.0 + Math.random() * 2) {
+        isBlinking = true;
+        blinkTimer = 0;
+    } else if (isBlinking && blinkTimer > 0.15) {
+        isBlinking = false;
+        blinkTimer = 0;
+    }
+
+    const activeScrollSpeed = (gameState === 'PLAYING' || gameState === 'LAUNCHING') ? worldSpeed : 0.35;
+    drawBackground(activeScrollSpeed);
+
+    const groundY = H * 0.86;
+    const maxStemHeight = Math.min(H * 0.38, 280);
+    const maxRadius = Math.min(W, H) * 0.145;
+
+    // --- FAZA 1 & 2: SARI VƏ AĞ GÜL MƏRHƏLƏSİ ---
+    if (gameState === 'FLOWER_YELLOW' || gameState === 'FLOWER_WHITE') {
+        const cursorLean = pointer.active ? ((pointer.x - flowerAnchorX) / W) * 26 : 0;
+        const windSway = Math.sin(globalTime * 1.3) * 12 + cursorLean;
+
+        const headX = flowerAnchorX + windSway;
+        const headY = groundY - maxStemHeight;
+        flowerCenter = { x: headX, y: headY, radius: maxRadius };
+
+        drawStemAndLeaves(flowerAnchorX, groundY, headX, headY, 1.0, 1.0);
+
+        const currentR = maxRadius * bounceScale;
+        const isWhite = (gameState === 'FLOWER_WHITE');
+        if (isWhite) {
+            drawWhitePuffCrown(headX, headY, currentR);
+        } else {
+            drawYellowCrown(headX, headY, currentR);
+        }
+
+        const faceMood = expressionTimer > 0.25 ? 'excited' : 'happy';
+        drawCuteFace(headX, headY, currentR, faceMood, pointer);
+    }
+
+    // --- FAZA 3: BALA UÇUŞA BURAXILIR ---
+    else if (gameState === 'LAUNCHING') {
+        // Köhnə gül arxaya doğru gedir və solur
+        flowerAnchorX -= worldSpeed * 1.15;
+        const fade = Math.max(0, 1 - stateTimer * 1.4);
+        if (fade > 0.01) {
+            const headX = flowerAnchorX;
+            const headY = groundY - maxStemHeight;
+            drawStemAndLeaves(flowerAnchorX, groundY, headX, headY, 1.0, fade);
+            ctx.save();
+            ctx.globalAlpha = fade;
+            drawCuteFace(headX, headY, maxRadius * 0.85, 'blowing', player);
+            ctx.restore();
+        }
+
+        // Oyunçu bala ekranın sol-mərkəz mövqeyinə süzülür
+        const targetPlayerX = Math.min(W * 0.26, 220);
+        player.x += (targetPlayerX - player.x) * 0.06;
+        player.vy += 0.21; // Yüngül cazibə
+        player.y += player.vy;
+        player.rotation = Math.max(-0.35, Math.min(0.45, player.vy * 0.06));
+
+        if (stateTimer > 0.75) {
+            gameState = 'PLAYING';
+            stateTimer = 0;
+            updateStatusUI();
+        }
+    }
+
+    // --- FAZA 4: AKTİV OYUN (OYUNÇU = BALA ZƏNCİROTU TOXUMU) ---
+    else if (gameState === 'PLAYING') {
+        // Zərif paraşüt fizikası
+        const gravity = 0.22;
+        player.vy = Math.min(6.2, player.vy + gravity);
+        player.y += player.vy;
+
+        // Yuxarı sərhəd qoruması
+        if (player.y < 36) {
+            player.y = 36;
+            player.vy = 0.5;
+        }
+
+        // Bucağın yumşaq dəyişməsi
+        player.rotation = Math.max(-0.38, Math.min(0.48, player.vy * 0.065));
+
+        // İz zərrəcikləri
+        if (Math.random() > 0.45) {
+            player.trail.push({ x: player.x - 10, y: player.y + 12 });
+            if (player.trail.length > 14) player.trail.shift();
+        }
+        for (let pt of player.trail) pt.x -= worldSpeed * 0.7;
+
+        // Məsafəyə görə xal və tədricən sürətlənmə
+        distanceCounter += 0.016;
+        if (distanceCounter >= 1.0) {
+            distanceCounter = 0;
+            addScore(1);
+            worldSpeed = Math.min(6.5, worldSpeed + 0.03);
+        }
+
+        // Yeni maneələr və ulduz tozları yarat
+        obstacleSpawnTimer -= 0.016;
+        if (obstacleSpawnTimer <= 0) {
+            spawnObstacle();
+            obstacleSpawnTimer = Math.max(1.35, 2.35 - (worldSpeed - 3.1) * 0.22);
+        }
+
+        collectibleSpawnTimer -= 0.016;
+        if (collectibleSpawnTimer <= 0) {
+            spawnCollectible();
+            collectibleSpawnTimer = 0.85 + Math.random() * 0.7;
+        }
+
+        // Ulduz tozlarını yenilə və topla
+        for (let i = collectibles.length - 1; i >= 0; i--) {
+            const c = collectibles[i];
+            c.x -= worldSpeed;
+            if (c.x < -50) {
+                collectibles.splice(i, 1);
+                continue;
+            }
+
+            if (!c.collected && Math.hypot(player.x - c.x, player.y - c.y) < player.radius + c.radius + 8) {
+                c.collected = true;
+                stardustCombo++;
+                const pts = c.isSuper ? 5 : 2;
+                addScore(pts);
+                playCollectSound(stardustCombo);
+                spawnSparkles(c.x, c.y, c.isSuper ? ['#6ee7b7', '#ffffff'] : ['#fef08a', '#fbbf24'], 14);
+
+                // Qalxan enerjisi yığ (5 ulduz tozu = 1 qoruyucu qalxan)
+                if (!player.hasShield) {
+                    player.shieldCharge += c.isSuper ? 3 : 1;
+                    if (player.shieldCharge >= 5) {
+                        player.hasShield = true;
+                        player.shieldCharge = 0;
+                        shieldBadge.classList.remove('hidden');
+                        shieldBadge.classList.add('flex');
+                        playMagicChime(783.99);
+                    }
+                }
+                collectibles.splice(i, 1);
+            }
+        }
+
+        // Maneələri yenilə və toqquşmanı yoxla
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            const obs = obstacles[i];
+            obs.x -= worldSpeed;
+            if (obs.x < -90) {
+                obstacles.splice(i, 1);
+                continue;
+            }
+
+            // Maneəni uğurla keçəndə bonus xal
+            if (!obs.passed && obs.x < player.x - 20) {
+                obs.passed = true;
+                addScore(2);
+            }
+
+            // Toqquşma yoxlanışı (oyunçu üçün ədalətli, bir az kiçildilmiş hitbox)
+            const hitR = player.radius * 0.72;
+            let collided = false;
+
+            if (obs.type === 'storm_cloud') {
+                if (Math.hypot(player.x - obs.x, player.y - obs.y) < hitR + obs.radius * 0.78) {
+                    collided = true;
+                }
+            } else {
+                const halfW = obs.width * 0.36;
+                if (player.x + hitR > obs.x - halfW && player.x - hitR < obs.x + halfW) {
+                    if (obs.topHeight > 10 && player.y - hitR < obs.topHeight - 6) collided = true;
+                    if (player.y + hitR > obs.bottomY + 6) collided = true;
+                }
+            }
+
+            if (collided && player.invulnTimer <= 0) {
+                if (player.hasShield) {
+                    // Qalxan maneəni qırır və balanı xilas edir!
+                    player.hasShield = false;
+                    player.invulnTimer = 1.2;
+                    shieldBadge.classList.add('hidden');
+                    shieldBadge.classList.remove('flex');
+                    playMagicChime(440);
+                    spawnSparkles(player.x, player.y, ['#34d399', '#ffffff', '#fef08a'], 28);
+                    obstacles.splice(i, 1);
+                } else {
+                    triggerSeedFall();
+                    break;
+                }
+            }
+        }
+
+        // Torpağa dəysə yumşaq eniş başlasın
+        if (gameState === 'PLAYING' && player.y + 22 >= groundY) {
+            player.y = groundY - 22;
+            triggerSeedFall();
+        }
+    }
+
+    // --- FAZA 5: BALA TORPAĞA ENİR ---
+    else if (gameState === 'FALLING') {
+        player.vy += 0.24;
+        player.x += player.vx;
+        player.y += player.vy;
+        player.rotation = Math.sin(globalTime * 8) * 0.35;
+
+        // Torpağa çatdıqda dərhal yerində cücərmə başlayır!
+        if (player.y + 18 >= groundY) {
+            player.y = groundY - 18;
+            flowerAnchorX = Math.max(90, Math.min(W - 90, player.x));
+            gameState = 'SPROUTING';
+            sproutProgress = 0.05;
+            stateTimer = 0;
+            hasPlayedBefore = true;
+
+            // Nəticə kartını yenilə və göstər
+            lastScoreVal.textContent = score;
+            summaryBestVal.textContent = bestScore;
+            runSummaryCard.classList.remove('hidden');
+
+            spawnSparkles(flowerAnchorX, groundY - 6, ['#34d399', '#fef08a', '#ffffff'], 30);
+            playMagicChime(440);
+            updateStatusUI();
+        }
+    }
+
+    // --- FAZA 6: DÜŞDÜYÜ YERDƏ YENİDƏN SARI GÜL OLARAQ BÖYÜYÜR! ---
+    else if (gameState === 'SPROUTING') {
+        sproutProgress += 0.015;
+        const stemGrow = Math.min(1, sproutProgress / 0.55);
+        const rawHead = Math.max(0, (sproutProgress - 0.50) / 0.50);
+        const headGrow = rawHead === 0 ? 0 : Math.min(1.06, Math.sin(rawHead * Math.PI * 0.65) * 1.12);
+
+        const headX = flowerAnchorX;
+        const headY = groundY - maxStemHeight * stemGrow;
+
+        drawStemAndLeaves(flowerAnchorX, groundY, headX, headY, stemGrow, 1.0);
+
+        if (headGrow > 0.04) {
+            const currentR = maxRadius * headGrow;
+            drawYellowCrown(headX, headY, currentR);
+            if (headGrow > 0.45) {
+                drawCuteFace(headX, headY, currentR, 'excited', pointer);
+            }
+        }
+
+        if (sproutProgress >= 1.0) {
+            gameState = 'FLOWER_YELLOW';
+            stateTimer = 0;
+            bounceVel = 0.14;
+            playMagicChime(523.25);
+            spawnSparkles(headX, headY, ['#fef08a', '#fbbf24', '#34d399'], 26);
+            updateStatusUI();
+        }
+    }
+
+    // Uçuş obyektlərini və oyunçu balanı çək
+    if (gameState === 'LAUNCHING' || gameState === 'PLAYING' || gameState === 'FALLING') {
+        drawCollectibles();
+        drawObstacles();
+        drawHeroBabySeed();
+    }
+
+    drawBackgroundSeedsAndSparkles();
+
+    requestAnimationFrame(gameLoop);
+}
+
+updateStatusUI();
+window.onload = function () {
+    gameLoop();
+};
+</script>
+</body>
+</html>
+```
